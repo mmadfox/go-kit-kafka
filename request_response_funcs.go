@@ -17,6 +17,9 @@ type ConsumerResponseFunc func(ctx context.Context, response any) context.Contex
 type ProducerResponseFunc func(ctx context.Context) context.Context
 
 // ConsumerFinalizerFunc can be used to perform work at the end of message processing,
-// after the response has been constructed. The principal
-// intended use is for request logging.
+// after the response has been constructed.
 type ConsumerFinalizerFunc func(ctx context.Context, msg *Message, err error)
+
+// ProducerFinalizerFunc can be used to perform work at the end of a producing Kafka message,
+// after response is returned.
+type ProducerFinalizerFunc func(ctx context.Context, err error)
