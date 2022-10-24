@@ -10,21 +10,25 @@ import (
 
 var eventTypeKey = []byte("_e_")
 
+// Broker represents is a router for channels and handlers.
 type Broker struct {
 	channels        map[string]*Channel
 	notFoundHandler Handler
 }
 
+// NewBroker creates a new broker instance.
 func NewBroker() *Broker {
 	return &Broker{
 		channels: make(map[string]*Channel),
 	}
 }
 
-func (b *Broker) NotFoundHandler(h Handler) {
+// SetNotFoundHandler sets a handler for undefined topic.
+func (b *Broker) SetNotFoundHandler(h Handler) {
 	b.notFoundHandler = h
 }
 
+// AddChannel adds channel to the broker with specified name and handler(s).
 func (b *Broker) AddChannel(name string, handler Handler, other ...Handler) *Channel {
 	channel := b.NewChannel(name).Handler(handler)
 	for i := 0; i < len(other); i++ {
@@ -33,12 +37,14 @@ func (b *Broker) AddChannel(name string, handler Handler, other ...Handler) *Cha
 	return channel
 }
 
+// NewChannel creates a new channel in the broker and returns it.
 func (b *Broker) NewChannel(name string) *Channel {
 	channel := newChannel(name)
 	b.channels[name] = channel
 	return channel
 }
 
+// HandleMessage handles messages from the broker.
 func (b *Broker) HandleMessage(ctx context.Context, msg *Message) (err error) {
 	channel, ok := b.channels[msg.Topic]
 	if ok {
@@ -52,6 +58,7 @@ func (b *Broker) HandleMessage(ctx context.Context, msg *Message) (err error) {
 	return
 }
 
+// Channel represents single named channel.
 type Channel struct {
 	name     string
 	handlers []Handler
@@ -65,11 +72,13 @@ func newChannel(name string) *Channel {
 	}
 }
 
+// Match matches the handlers by event type.
 func (ch *Channel) Match(eventType ...string) *Channel {
 	ch.matchers = append(ch.matchers, eventType...)
 	return ch
 }
 
+// Handler appends handler to the channel.
 func (ch *Channel) Handler(h Handler) *Channel {
 	ch.handlers = append(ch.handlers, h)
 	return ch
