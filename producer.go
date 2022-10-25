@@ -83,7 +83,7 @@ func (p Producer) Endpoint() endpoint.Endpoint {
 		msg := &Message{
 			Topic: p.topic,
 		}
-		if err := p.enc(ctx, msg, request); err != nil {
+		if err = p.enc(ctx, msg, request); err != nil {
 			return nil, err
 		}
 
@@ -91,7 +91,7 @@ func (p Producer) Endpoint() endpoint.Endpoint {
 			ctx = f(ctx, msg)
 		}
 
-		if err := p.handler.HandleMessage(ctx, msg); err != nil {
+		if err = p.handler.HandleMessage(ctx, msg); err != nil {
 			return nil, err
 		}
 
