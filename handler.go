@@ -9,7 +9,7 @@ type Handler interface {
 
 // Message represents a Kafka message.
 type Message struct {
-	Topic     string
+	Topic     Topic
 	Partition int32
 	Offset    int64
 	Key       []byte

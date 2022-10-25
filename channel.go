@@ -12,15 +12,24 @@ var eventTypeKey = []byte("_e_")
 
 // Broker represents is a router for channels and handlers.
 type Broker struct {
-	channels        map[string]*Channel
+	channels        map[Topic]*Channel
 	notFoundHandler Handler
 }
 
 // NewBroker creates a new broker instance.
 func NewBroker() *Broker {
 	return &Broker{
-		channels: make(map[string]*Channel),
+		channels: make(map[Topic]*Channel),
 	}
+}
+
+// Channels returns a list of channels.
+func (b *Broker) Channels() []*Channel {
+	channels := make([]*Channel, 0, len(b.channels))
+	for _, channel := range b.channels {
+		channels = append(channels, channel)
+	}
+	return channels
 }
 
 // SetNotFoundHandler sets a handler for undefined topic.
@@ -29,7 +38,7 @@ func (b *Broker) SetNotFoundHandler(h Handler) {
 }
 
 // AddChannel adds channel to the broker with specified name and handler(s).
-func (b *Broker) AddChannel(name string, handler Handler, other ...Handler) *Channel {
+func (b *Broker) AddChannel(name Topic, handler Handler, other ...Handler) *Channel {
 	channel := b.NewChannel(name).Handler(handler)
 	for i := 0; i < len(other); i++ {
 		channel.Handler(other[i])
@@ -38,7 +47,7 @@ func (b *Broker) AddChannel(name string, handler Handler, other ...Handler) *Cha
 }
 
 // NewChannel creates a new channel in the broker and returns it.
-func (b *Broker) NewChannel(name string) *Channel {
+func (b *Broker) NewChannel(name Topic) *Channel {
 	channel := newChannel(name)
 	b.channels[name] = channel
 	return channel
@@ -58,18 +67,37 @@ func (b *Broker) HandleMessage(ctx context.Context, msg *Message) (err error) {
 	return
 }
 
-// Channel represents single named channel.
+// Channel represents a single named channel.
 type Channel struct {
-	name     string
+	name     Topic
 	handlers []Handler
 	matchers []string
 }
 
-func newChannel(name string) *Channel {
+func newChannel(name Topic) *Channel {
 	return &Channel{
 		name:     name,
 		handlers: make([]Handler, 0),
 	}
+}
+
+// Topic returns the channel name.
+func (ch *Channel) Topic() Topic {
+	return ch.name
+}
+
+// Filter returns a list of event filters.
+func (ch *Channel) Filter() []string {
+	filters := make([]string, len(ch.matchers))
+	copy(filters, ch.matchers)
+	return filters
+}
+
+// Handlers returns a list of handlers.
+func (ch *Channel) Handlers() []Handler {
+	handlers := make([]Handler, len(ch.handlers))
+	copy(handlers, ch.handlers)
+	return handlers
 }
 
 // Match matches the handlers by event type.

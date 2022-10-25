@@ -12,8 +12,9 @@ var fakeResponse = struct{}{}
 // and implements endpoint.Endpoint.
 type Producer struct {
 	handler   Handler
-	topic     string
+	topic     Topic
 	enc       EncodeRequestFunc
+	response  any
 	before    []RequestFunc
 	after     []ProducerResponseFunc
 	finalizer []ProducerFinalizerFunc
@@ -26,14 +27,15 @@ type ProducerOption func(*Producer)
 // which implements endpoint.Endpoint.
 func NewProducer(
 	handler Handler,
-	topic string,
+	topic Topic,
 	enc EncodeRequestFunc,
 	options ...ProducerOption,
 ) *Producer {
 	p := &Producer{
-		handler: handler,
-		topic:   topic,
-		enc:     enc,
+		handler:  handler,
+		topic:    topic,
+		response: fakeResponse,
+		enc:      enc,
 	}
 	for _, opt := range options {
 		opt(p)
@@ -80,9 +82,7 @@ func (p Producer) Endpoint() endpoint.Endpoint {
 			}()
 		}
 
-		msg := &Message{
-			Topic: p.topic,
-		}
+		msg := &Message{Topic: p.topic}
 		if err = p.enc(ctx, msg, request); err != nil {
 			return nil, err
 		}
@@ -99,6 +99,6 @@ func (p Producer) Endpoint() endpoint.Endpoint {
 			ctx = f(ctx)
 		}
 
-		return fakeResponse, nil
+		return p.response, nil
 	}
 }

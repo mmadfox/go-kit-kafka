@@ -96,7 +96,7 @@ func (b Broadcaster) Publish(ctx context.Context, topic Topic, event any) (err e
 		}()
 	}
 
-	msg := &Message{Topic: topic.String()}
+	msg := &Message{Topic: topic}
 	enc, ok := b.enc[topic]
 	if ok {
 		if err = enc(ctx, msg, event); err != nil {
