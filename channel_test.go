@@ -1,40 +1,64 @@
 package gokitkafka
 
 import (
+	"context"
 	"testing"
 
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
+
+	"github.com/stretchr/testify/suite"
+
+	"github.com/golang/mock/gomock"
 )
 
-func TestNewBroker(t *testing.T) {
-	broker := NewBroker()
-	require.NotNil(t, broker)
+type BrokerTestSuite struct {
+	suite.Suite
+
+	topics          []Topic
+	ctrl            *gomock.Controller
+	handler         *MockHandler
+	rollbackHandler *MockHandler
+	broker          *Broker
+	msg             *Message
+	ctx             context.Context
 }
 
-func TestBroker_AddChannel(t *testing.T) {
-	expectedTopic := Topic("order.svc")
-	expectedHandlesCount := 3
-	expectedChannelsCount := 1
-	expectedFilter := []string{"one", "two"}
-
-	broker := NewBroker()
-	ctrl := gomock.NewController(t)
-	handler := NewMockHandler(ctrl)
-
-	channel := broker.AddChannel(expectedTopic, handler, handler, handler).Match(expectedFilter...)
-	require.NotNil(t, channel)
-	require.Len(t, broker.Channels(), expectedChannelsCount)
-	require.Equal(t, expectedTopic, channel.Topic())
-	require.Equal(t, expectedFilter, channel.Filter())
-	require.Len(t, channel.Handlers(), expectedHandlesCount)
+func TestBroker(t *testing.T) {
+	suite.Run(t, new(BrokerTestSuite))
 }
 
-func TestBroker_NewChannel(t *testing.T) {
-	expectedTopic := Topic("order.svc")
+func (s *BrokerTestSuite) SetupTest() {
+	s.topics = []Topic{"t1", "t2", "t3"}
+	s.ctrl = gomock.NewController(s.T())
+	s.handler = NewMockHandler(s.ctrl)
+	s.rollbackHandler = NewMockHandler(s.ctrl)
+	s.broker = NewBroker()
+	s.msg = &Message{Topic: s.topics[0]}
+}
 
-	broker := NewBroker()
-	channel := broker.NewChannel(expectedTopic)
-	require.NotNil(t, channel)
-	require.Equal(t, expectedTopic, channel.Topic())
+func (s *BrokerTestSuite) TestAddChannels() {
+	s.eachTopic(func(topic Topic) {
+		s.broker.AddChannel(topic, s.handler, s.handler, s.handler)
+	})
+	channels := s.broker.Channels()
+	require.Len(s.T(), channels, len(s.topics))
+	for i := 0; i < len(channels); i++ {
+		ch := channels[i]
+		require.Equal(s.T(), s.topics[i], ch.Topic())
+		require.Len(s.T(), ch.Handlers(), 3)
+	}
+}
+
+func (s *BrokerTestSuite) TestSetNotFoundHandler() {
+	s.handler.EXPECT().HandleMessage(gomock.Any(), s.msg).Times(1)
+
+	s.broker.SetNotFoundHandler(s.handler)
+	err := s.broker.HandleMessage(s.ctx, s.msg)
+	require.NoError(s.T(), err)
+}
+
+func (s *BrokerTestSuite) eachTopic(fn func(Topic)) {
+	for i := 0; i < len(s.topics); i++ {
+		fn(s.topics[i])
+	}
 }

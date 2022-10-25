@@ -98,14 +98,14 @@ func (b Broadcaster) Publish(ctx context.Context, topic Topic, event any) (err e
 
 	msg := &Message{Topic: topic}
 	enc, ok := b.enc[topic]
-	if ok {
-		if err = enc(ctx, msg, event); err != nil {
-			return err
-		}
-	} else {
-		if err = b.enc[defaultEncKey](ctx, msg, event); err != nil {
-			return err
-		}
+	switch ok {
+	case true:
+		err = enc(ctx, msg, event)
+	case false:
+		err = b.enc[defaultEncKey](ctx, msg, event)
+	}
+	if err != nil {
+		return err
 	}
 
 	for _, f := range b.before {

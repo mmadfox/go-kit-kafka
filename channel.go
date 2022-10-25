@@ -8,7 +8,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 )
 
-var eventTypeKey = []byte("_e_")
+var eventTypeKey = []byte("@")
 
 // Broker represents is a router for channels and handlers.
 type Broker struct {
@@ -69,9 +69,10 @@ func (b *Broker) HandleMessage(ctx context.Context, msg *Message) (err error) {
 
 // Channel represents a single named channel.
 type Channel struct {
-	name     Topic
-	handlers []Handler
-	matchers []string
+	name      Topic
+	handlers  []Handler
+	rollbacks []Handler
+	matchers  []string
 }
 
 func newChannel(name Topic) *Channel {
@@ -100,6 +101,13 @@ func (ch *Channel) Handlers() []Handler {
 	return handlers
 }
 
+// RollbackHandlers returns a list of rollback handlers.
+func (ch *Channel) RollbackHandlers() []Handler {
+	handlers := make([]Handler, len(ch.handlers))
+	copy(handlers, ch.handlers)
+	return handlers
+}
+
 // Match matches the handlers by event type.
 func (ch *Channel) Match(eventType ...string) *Channel {
 	ch.matchers = append(ch.matchers, eventType...)
@@ -112,23 +120,54 @@ func (ch *Channel) Handler(h Handler) *Channel {
 	return ch
 }
 
+// RollbackHandler appends rollback handler(s) to the channel.
+// Compensating handler. Processed in reverse order of addition.
+func (ch *Channel) RollbackHandler(h ...Handler) *Channel {
+	ch.rollbacks = append(ch.rollbacks, h...)
+	return ch
+}
+
 func (ch *Channel) handleMessage(ctx context.Context, msg *Message) (err error) {
-	et, ok := ch.eventType(msg)
-	if ok && len(ch.matchers) > 0 {
-		var found bool
-		for i := 0; i < len(ch.matchers); i++ {
-			if ch.matchers[i] == et {
-				found = true
-				break
-			}
-		}
-		if !found {
-			return
-		}
+	if ch.isSkipMsg(msg) {
+		return
 	}
 	var errs *multierror.Error
 	for i := 0; i < len(ch.handlers); i++ {
-		if err = ch.handlers[i].HandleMessage(ctx, msg); err != nil {
+		err = ch.handlers[i].HandleMessage(ctx, msg)
+		if err != nil {
+			errs = multierror.Append(errs, err)
+			if rbErr := ch.rollback(ctx, msg); rbErr != nil {
+				errs = multierror.Append(errs, rbErr)
+			}
+			return errs
+		}
+	}
+	return
+}
+
+func (ch *Channel) isSkipMsg(msg *Message) (skip bool) {
+	if len(ch.matchers) == 0 {
+		return
+	}
+	skip = true
+	eventType, ok := ch.eventType(msg)
+	if !ok {
+		return
+	}
+	for i := 0; i < len(ch.matchers); i++ {
+		if ch.matchers[i] == eventType {
+			skip = false
+			break
+		}
+	}
+	return
+}
+
+func (ch *Channel) rollback(ctx context.Context, origin *Message) error {
+	var errs *multierror.Error
+	for i := len(ch.rollbacks) - 1; i >= 0; i-- {
+		handler := ch.rollbacks[i]
+		if err := handler.HandleMessage(ctx, origin); err != nil {
 			errs = multierror.Append(errs, err)
 		}
 	}
