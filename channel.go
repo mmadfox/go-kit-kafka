@@ -120,6 +120,12 @@ func (ch *Channel) Handler(h Handler) *Channel {
 	return ch
 }
 
+// HandlerFunc appends handler func to the channel.
+func (ch *Channel) HandlerFunc(h HandlerFunc) *Channel {
+	ch.handlers = append(ch.handlers, h)
+	return ch
+}
+
 // RollbackHandler appends rollback handler(s) to the channel.
 // Compensating handler. Processed in reverse order of addition.
 func (ch *Channel) RollbackHandler(h ...Handler) *Channel {

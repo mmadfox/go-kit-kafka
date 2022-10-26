@@ -50,6 +50,9 @@ func (l *Listener) Listen(ctx context.Context) error {
 			return ctx.Err()
 		default:
 			if err := l.cg.Consume(ctx, l.topics, l.cgh); err != nil {
+				if errors.Is(err, sarama.ErrClosedClient) {
+					return nil
+				}
 				l.erh.Handle(ctx, err)
 				return err
 			}
