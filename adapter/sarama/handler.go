@@ -1,4 +1,4 @@
-package adaptersarama
+package sarama
 
 import (
 	"context"
@@ -38,13 +38,13 @@ func NewHandler(h gokitkafka.Handler, opts ...HandlerOption) (*Handler, error) {
 	return handler, nil
 }
 
-func HandlerOnSetup(fn ...HookFunc) HandlerOption {
+func OnSetup(fn ...HookFunc) HandlerOption {
 	return func(h *Handler) {
 		h.onSetup = append(h.onSetup, fn...)
 	}
 }
 
-func HandlerOnCleanup(fn ...HookFunc) HandlerOption {
+func OnCleanup(fn ...HookFunc) HandlerOption {
 	return func(h *Handler) {
 		h.onCleanup = append(h.onCleanup, fn...)
 	}

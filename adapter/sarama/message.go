@@ -1,4 +1,4 @@
-package adaptersarama
+package sarama
 
 import (
 	"time"

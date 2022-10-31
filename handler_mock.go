@@ -2,7 +2,7 @@
 // Source: handler.go
 
 // Package gokitkafka is a generated GoMock package.
-package gokitkafka
+package kafka
 
 import (
 	context "context"

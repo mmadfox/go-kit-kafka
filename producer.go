@@ -1,4 +1,4 @@
-package gokitkafka
+package kafka
 
 import (
 	"context"
@@ -83,9 +83,10 @@ func (p Producer) Endpoint() endpoint.Endpoint {
 		}
 
 		msg := &Message{Topic: p.topic}
-		if err = p.enc(ctx, msg, request); err != nil {
-			return nil, err
-		}
+		// TODO:
+		//if err = p.enc(ctx, msg, request); err != nil {
+		//	return nil, err
+		//}
 
 		for _, f := range p.before {
 			ctx = f(ctx, msg)

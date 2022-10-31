@@ -1,15 +1,14 @@
-package gokitkafka
+package kafka
 
 import (
 	"context"
+	"encoding"
 )
-
-const defaultEncKey = "default"
 
 // EventPublisher represents a publisher of any event in the Kafka topic.
 type EventPublisher interface {
 	// Publish publishes events to the specified kafka topic.
-	Publish(ctx context.Context, topic Topic, event any) (err error)
+	Publish(ctx context.Context, topic Topic, event encoding.BinaryMarshaler) (err error)
 }
 
 // Topic represents a topic Kafka.
@@ -34,16 +33,12 @@ type BroadcastOption func(*Broadcaster)
 // NewBroadcaster creates a new broadcaster.
 func NewBroadcaster(
 	handler Handler,
-	enc EncodeRequestFunc,
 	options ...BroadcastOption,
 ) *Broadcaster {
 	b := &Broadcaster{
 		handler: handler,
 		enc:     make(map[Topic]EncodeRequestFunc),
 	}
-
-	b.enc[defaultEncKey] = enc
-
 	for _, opt := range options {
 		opt(b)
 	}
@@ -84,7 +79,7 @@ func BroadcasterFinalizer(f ...ProducerFinalizerFunc) BroadcastOption {
 }
 
 // Publish sends an any event to the specified topic.
-func (b Broadcaster) Publish(ctx context.Context, topic Topic, event any) (err error) {
+func (b Broadcaster) Publish(ctx context.Context, topic Topic, event encoding.BinaryMarshaler) (err error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -98,14 +93,16 @@ func (b Broadcaster) Publish(ctx context.Context, topic Topic, event any) (err e
 
 	msg := &Message{Topic: topic}
 	enc, ok := b.enc[topic]
-	switch ok {
-	case true:
+	if ok {
 		err = enc(ctx, msg, event)
-	case false:
-		err = b.enc[defaultEncKey](ctx, msg, event)
-	}
-	if err != nil {
-		return err
+		if err != nil {
+			return err
+		}
+	} else {
+		msg.Value, err = event.MarshalBinary()
+		if err != nil {
+			return err
+		}
 	}
 
 	for _, f := range b.before {

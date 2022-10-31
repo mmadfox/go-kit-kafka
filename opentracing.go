@@ -1,4 +1,4 @@
-package gokitkafka
+package kafka
 
 import (
 	"github.com/go-kit/kit/endpoint"

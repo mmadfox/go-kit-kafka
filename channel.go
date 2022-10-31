@@ -1,4 +1,4 @@
-package gokitkafka
+package kafka
 
 import (
 	"bytes"
