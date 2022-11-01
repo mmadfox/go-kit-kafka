@@ -1,6 +1,9 @@
 package kafka
 
-import "context"
+import (
+	"context"
+	"time"
+)
 
 // Handler wraps an endpoint and provides a handler for Kafka messages.
 type Handler interface {
@@ -22,22 +25,11 @@ type Message struct {
 	Key       []byte
 	Value     []byte
 	Headers   []Header
-	Timestamp int64
+	Timestamp time.Time
 }
 
 // Header represents a Kafka header.
 type Header struct {
 	Key   []byte
 	Value []byte
-}
-
-// WithEventType sets the event type to the message header.
-func WithEventType(msg *Message, eventType string) {
-	if msg == nil {
-		return
-	}
-	msg.Headers = append(msg.Headers, Header{
-		Key:   eventTypeKey,
-		Value: []byte(eventType),
-	})
 }

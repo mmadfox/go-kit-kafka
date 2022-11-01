@@ -22,6 +22,7 @@ type Handler struct {
 	onCleanup    []HookFunc
 	before       []HandlerBeforeFunc
 	after        HandlerAfterFunc
+	afterErr     HandlerAfterFunc
 }
 
 func NewHandler(h gokitkafka.Handler, opts ...HandlerOption) (*Handler, error) {
@@ -62,6 +63,12 @@ func HandlerAfter(after HandlerAfterFunc) HandlerOption {
 	}
 }
 
+func HandlerAfterError(after HandlerAfterFunc) HandlerOption {
+	return func(h *Handler) {
+		h.afterErr = after
+	}
+}
+
 func (h *Handler) Setup(session sarama.ConsumerGroupSession) error {
 	for i := 0; i < len(h.onSetup); i++ {
 		if err := h.onSetup[i](session); err != nil {
@@ -85,7 +92,9 @@ func (h *Handler) ConsumeClaim(
 	claim sarama.ConsumerGroupClaim,
 ) error {
 	ctx := session.Context()
-
+	message := &gokitkafka.Message{
+		Headers: make([]gokitkafka.Header, 0, 16),
+	}
 	for {
 		select {
 		case msg := <-claim.Messages():
@@ -96,8 +105,27 @@ func (h *Handler) ConsumeClaim(
 				}
 			}
 
-			if err := h.handler.HandleMessage(ctx, convertSaramaToKafka(msg)); err != nil {
+			message.Headers = message.Headers[:]
+			if len(msg.Headers) > 0 {
+				for i := 0; i < len(msg.Headers); i++ {
+					message.Headers = append(message.Headers, gokitkafka.Header{
+						Key:   msg.Headers[i].Key,
+						Value: msg.Headers[i].Value,
+					})
+				}
+			}
+			message.Topic = gokitkafka.Topic(msg.Topic)
+			message.Partition = msg.Partition
+			message.Offset = msg.Offset
+			message.Timestamp = msg.Timestamp
+			message.Key = msg.Key
+			message.Value = msg.Value
+
+			if err := h.handler.HandleMessage(ctx, message); err != nil {
 				h.errorHandler.Handle(ctx, err)
+				if h.afterErr != nil {
+					h.afterErr(ctx, session, msg)
+				}
 				continue
 			}
 
