@@ -69,6 +69,12 @@ func HandlerAfterError(after HandlerAfterFunc) HandlerOption {
 	}
 }
 
+func HandlerError(handler transport.ErrorHandler) HandlerOption {
+	return func(h *Handler) {
+		h.errorHandler = handler
+	}
+}
+
 func (h *Handler) Setup(session sarama.ConsumerGroupSession) error {
 	for i := 0; i < len(h.onSetup); i++ {
 		if err := h.onSetup[i](session); err != nil {
