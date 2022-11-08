@@ -4,56 +4,73 @@ import (
 	"context"
 	"errors"
 
-	"github.com/go-kit/kit/transport"
-
 	"github.com/Shopify/sarama"
 )
 
 var (
-	ErrTopicsNotFound = errors.New("kafka: topics not found")
-	ErrConsumerGroup  = errors.New("kafka: consumer cannot be nil")
-	ErrHandler        = errors.New("kafka: handler cannot be nil")
+	// ErrTopicNotFound is the error returned when the list of topics is empty when the listener is created.
+	ErrTopicNotFound = errors.New("kafka/sarama: topics not found")
+	// ErrNilConsumerGroup error returned when creating a listener with nil consumerGroup argument.
+	ErrNilConsumerGroup = errors.New("kafka/sarama: consumer cannot be nil")
+	// ErrNilHandler error returned when creating a listener with nil groupHandler argument.
+	ErrNilHandler = errors.New("kafka/sarama: handler cannot be nil")
 )
 
+// Listener wraps sarama.ConsumerGroup.
 type Listener struct {
-	topics []string
-	cg     sarama.ConsumerGroup
-	cgh    sarama.ConsumerGroupHandler
-	erh    transport.ErrorHandler
+	topics       []string
+	group        sarama.ConsumerGroup
+	groupHandler sarama.ConsumerGroupHandler
+	handleError  ErrorHandlerFunc
 }
 
+// ErrorHandlerFunc type is an adapter to allow the use of
+// ordinary function as ErrorHandler. If f is a function
+// with the appropriate signature, ErrorHandlerFunc(f) is a
+// ErrorHandler that calls f.
+type ErrorHandlerFunc func(ctx context.Context, err error)
+
+// NewListener creates a new Listener instance with specified arguments.
 func NewListener(
 	topics []string,
-	cg sarama.ConsumerGroup,
-	cgh sarama.ConsumerGroupHandler,
-	erh transport.ErrorHandler,
+	consumerGroup sarama.ConsumerGroup,
+	groupHandler sarama.ConsumerGroupHandler,
+	errorHandler ErrorHandlerFunc,
 ) (*Listener, error) {
 	if len(topics) == 0 {
-		return nil, ErrTopicsNotFound
+		return nil, ErrTopicNotFound
 	}
-	if cg == nil {
-		return nil, ErrConsumerGroup
+	if consumerGroup == nil {
+		return nil, ErrNilConsumerGroup
 	}
-	if cgh == nil {
-		return nil, ErrHandler
+	if groupHandler == nil {
+		return nil, ErrNilHandler
 	}
-	if erh == nil {
-		erh = transport.ErrorHandlerFunc(func(context.Context, error) {})
+	if errorHandler == nil {
+		errorHandler = func(context.Context, error) {}
 	}
-	return &Listener{topics: topics, cg: cg, cgh: cgh, erh: erh}, nil
+	return &Listener{
+		topics:       topics,
+		group:        consumerGroup,
+		groupHandler: groupHandler,
+		handleError:  errorHandler,
+	}, nil
 }
 
+// Listen joins a cluster of consumers for a given list of topics and process messages.
+//
+// for more details see: https://github.com/Shopify/sarama/blob/main/consumer_group.go#L46
 func (l *Listener) Listen(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		default:
-			if err := l.cg.Consume(ctx, l.topics, l.cgh); err != nil {
+			if err := l.group.Consume(ctx, l.topics, l.groupHandler); err != nil {
 				if errors.Is(err, sarama.ErrClosedClient) {
 					return nil
 				}
-				l.erh.Handle(ctx, err)
+				l.handleError(ctx, err)
 				return err
 			}
 		}

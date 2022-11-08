@@ -7,8 +7,8 @@ import (
 	"github.com/go-kit/kit/transport"
 )
 
-// Consumer wraps an endpoint and provides a handler for Kafka messages.
-type Consumer struct {
+// Endpoint wraps an endpoint and provides a handler for Kafka messages.
+type Endpoint struct {
 	e            endpoint.Endpoint
 	dec          DecodeRequestFunc
 	before       []RequestFunc
@@ -17,17 +17,17 @@ type Consumer struct {
 	errorHandler transport.ErrorHandler
 }
 
-// ConsumerOption sets an optional parameter for consumer.
-type ConsumerOption func(*Consumer)
+// EndpointOption sets an optional parameter for r.
+type EndpointOption func(*Endpoint)
 
-// NewConsumer constructs a new consumer, which implements Handler and wraps
+// NewEndpoint constructs a new Endpoint, which implements Handler and wraps
 // the provided endpoint.
-func NewConsumer(
+func NewEndpoint(
 	e endpoint.Endpoint,
 	dec DecodeRequestFunc,
-	opts ...ConsumerOption,
-) *Consumer {
-	c := &Consumer{
+	opts ...EndpointOption,
+) *Endpoint {
+	c := &Endpoint{
 		e:   e,
 		dec: dec,
 		errorHandler: transport.ErrorHandlerFunc(
@@ -39,40 +39,40 @@ func NewConsumer(
 	return c
 }
 
-// ConsumerBefore functions are executed on the consumer message object
+// EndpointBefore functions are executed on the r message object
 // before the request is decoded.
-func ConsumerBefore(before ...RequestFunc) ConsumerOption {
-	return func(c *Consumer) {
+func EndpointBefore(before ...RequestFunc) EndpointOption {
+	return func(c *Endpoint) {
 		c.before = append(c.before, before...)
 	}
 }
 
-// ConsumerAfter functions are executed on the consumer reply after the
+// EndpointAfter functions are executed on the r reply after the
 // endpoint is invoked, but before anything is published to the reply.
-func ConsumerAfter(after ...ConsumerResponseFunc) ConsumerOption {
-	return func(c *Consumer) {
+func EndpointAfter(after ...ConsumerResponseFunc) EndpointOption {
+	return func(c *Endpoint) {
 		c.after = append(c.after, after...)
 	}
 }
 
-// ConsumerErrorHandler is used to handle non-terminal errors. By default, non-terminal errors
+// EndpointErrorHandler is used to handle non-terminal errors. By default, non-terminal errors
 // are ignored. This is intended as a diagnostic measure.
-func ConsumerErrorHandler(errorHandler transport.ErrorHandler) ConsumerOption {
-	return func(c *Consumer) {
+func EndpointErrorHandler(errorHandler transport.ErrorHandler) EndpointOption {
+	return func(c *Endpoint) {
 		c.errorHandler = errorHandler
 	}
 }
 
-// ConsumerFinalizer is executed at the end of every message processing.
+// EndpointFinalizer is executed at the end of every message processing.
 // By default, no finalizer is registered.
-func ConsumerFinalizer(f ...ConsumerFinalizerFunc) ConsumerOption {
-	return func(c *Consumer) {
+func EndpointFinalizer(f ...ConsumerFinalizerFunc) EndpointOption {
+	return func(c *Endpoint) {
 		c.finalizer = append(c.finalizer, f...)
 	}
 }
 
 // HandleMessage handles Kafka messages.
-func (c Consumer) HandleMessage(ctx context.Context, msg *Message) (err error) {
+func (c Endpoint) HandleMessage(ctx context.Context, msg *Message) (err error) {
 	if len(c.finalizer) > 0 {
 		defer func() {
 			for _, f := range c.finalizer {
