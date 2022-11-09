@@ -2,7 +2,6 @@ package kafka
 
 import (
 	"context"
-	"sync/atomic"
 )
 
 type BatchPipeOption func(*BatchPipeChannel)
@@ -12,7 +11,7 @@ type BatchPipeChannel struct {
 	outTopic      Topic
 	handlers      []batchPipeHandler
 	filters       []FilterFunc
-	forceCommit   uint32
+	forceCommit   bool
 	topicsForJoin []Topic
 }
 
@@ -28,18 +27,26 @@ func newBatchPipeChannel(in Topic, out Topic, opts ...BatchPipeOption) *BatchPip
 	return pipeChannel
 }
 
+func BatchPipeJoinTopic(topic ...Topic) BatchPipeOption {
+	return func(ch *BatchPipeChannel) {
+		ch.topicsForJoin = append(ch.topicsForJoin, topic...)
+	}
+}
+
+func BatchPipeWithFilter(filter ...FilterFunc) BatchPipeOption {
+	return func(ch *BatchPipeChannel) {
+		ch.filters = append(ch.filters, filter...)
+	}
+}
+
+func BatchPipeWithForceCommit() BatchPipeOption {
+	return func(ch *BatchPipeChannel) {
+		ch.forceCommit = true
+	}
+}
+
 func (ch *BatchPipeChannel) IsForceCommit() bool {
-	return atomic.LoadUint32(&ch.forceCommit) == 1
-}
-
-func (ch *BatchPipeChannel) EnableForceCommit() *BatchPipeChannel {
-	atomic.StoreUint32(&ch.forceCommit, 1)
-	return ch
-}
-
-func (ch *BatchPipeChannel) AddFilter(filter ...FilterFunc) *BatchPipeChannel {
-	ch.filters = append(ch.filters, filter...)
-	return ch
+	return ch.forceCommit
 }
 
 func (ch *BatchPipeChannel) Handler(in BatchPipeHandler, out Handler) *BatchPipeChannel {
@@ -48,15 +55,11 @@ func (ch *BatchPipeChannel) Handler(in BatchPipeHandler, out Handler) *BatchPipe
 	return ch
 }
 
-func (ch *BatchPipeChannel) Join(topic ...Topic) *BatchPipeChannel {
-	ch.topicsForJoin = append(ch.topicsForJoin, topic...)
-	return ch
-}
-
 func (ch *BatchPipeChannel) HandleMessages(ctx context.Context, in []*Message, size int) (err error) {
 	if size == 0 {
 		return
 	}
+
 	if len(ch.filters) > 0 {
 		filtered := make([]*Message, 0, size)
 		for i := 0; i < size; i++ {
@@ -73,6 +76,7 @@ func (ch *BatchPipeChannel) HandleMessages(ctx context.Context, in []*Message, s
 		in = filtered
 		size = len(filtered)
 	}
+
 	out := &Message{Topic: ch.outTopic}
 	for i := 0; i < len(ch.handlers); i++ {
 		handler := ch.handlers[i]

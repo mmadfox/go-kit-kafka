@@ -2,7 +2,6 @@ package kafka
 
 import (
 	"context"
-	"sync/atomic"
 )
 
 type PipeOption func(*PipeChannel)
@@ -12,7 +11,7 @@ type PipeChannel struct {
 	outTopic      Topic
 	handlers      []pipeHandler
 	filters       []FilterFunc
-	forceCommit   uint32
+	forceCommit   bool
 	topicsForJoin []Topic
 }
 
@@ -28,18 +27,26 @@ func newPipeChannel(in Topic, out Topic, opts ...PipeOption) *PipeChannel {
 	return pipeChannel
 }
 
+func PipeJoinTopic(topic ...Topic) PipeOption {
+	return func(ch *PipeChannel) {
+		ch.topicsForJoin = append(ch.topicsForJoin, topic...)
+	}
+}
+
+func PipeWithFilter(filter ...FilterFunc) PipeOption {
+	return func(ch *PipeChannel) {
+		ch.filters = append(ch.filters, filter...)
+	}
+}
+
+func PipeWithForceCommit() PipeOption {
+	return func(ch *PipeChannel) {
+		ch.forceCommit = true
+	}
+}
+
 func (ch *PipeChannel) IsForceCommit() bool {
-	return atomic.LoadUint32(&ch.forceCommit) == 1
-}
-
-func (ch *PipeChannel) EnableForceCommit() *PipeChannel {
-	atomic.StoreUint32(&ch.forceCommit, 1)
-	return ch
-}
-
-func (ch *PipeChannel) AddFilter(filter ...FilterFunc) *PipeChannel {
-	ch.filters = append(ch.filters, filter...)
-	return ch
+	return ch.forceCommit
 }
 
 func (ch *PipeChannel) Handler(in PipeHandler, out Handler) *PipeChannel {
@@ -51,11 +58,6 @@ func (ch *PipeChannel) Handler(in PipeHandler, out Handler) *PipeChannel {
 func (ch *PipeChannel) HandlerFunc(in PipeHandlerFunc, out Handler) *PipeChannel {
 	handler := pipeHandler{r: in, w: out}
 	ch.handlers = append(ch.handlers, handler)
-	return ch
-}
-
-func (ch *PipeChannel) Join(topic ...Topic) *PipeChannel {
-	ch.topicsForJoin = append(ch.topicsForJoin, topic...)
 	return ch
 }
 

@@ -61,6 +61,10 @@ func NewBroker() *Broker {
 	}
 }
 
+func Channels() *Broker {
+	return NewBroker()
+}
+
 func (b *Broker) ChannelType(topic Topic) ChannelType {
 	typ, ok := b.types[topic]
 	if !ok {

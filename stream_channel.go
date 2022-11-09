@@ -2,7 +2,6 @@ package kafka
 
 import (
 	"context"
-	"sync/atomic"
 
 	"github.com/hashicorp/go-multierror"
 )
@@ -14,7 +13,7 @@ type StreamChannel struct {
 	handlers      []Handler
 	rollbacks     []Handler
 	filters       []FilterFunc
-	forceCommit   uint32
+	forceCommit   bool
 	topicsForJoin []Topic
 }
 
@@ -29,18 +28,26 @@ func newStreamChannel(name Topic, opts ...StreamOption) *StreamChannel {
 	return channel
 }
 
+func StreamJoinTopic(topic ...Topic) StreamOption {
+	return func(ch *StreamChannel) {
+		ch.topicsForJoin = append(ch.topicsForJoin, topic...)
+	}
+}
+
+func StreamWithFilter(filter ...FilterFunc) StreamOption {
+	return func(ch *StreamChannel) {
+		ch.filters = append(ch.filters, filter...)
+	}
+}
+
+func StreamWithForceCommit() StreamOption {
+	return func(ch *StreamChannel) {
+		ch.forceCommit = true
+	}
+}
+
 func (ch *StreamChannel) IsForceCommit() bool {
-	return atomic.LoadUint32(&ch.forceCommit) == 1
-}
-
-func (ch *StreamChannel) EnableForceCommit() *StreamChannel {
-	atomic.StoreUint32(&ch.forceCommit, 1)
-	return ch
-}
-
-func (ch *StreamChannel) AddFilter(filter ...FilterFunc) *StreamChannel {
-	ch.filters = append(ch.filters, filter...)
-	return ch
+	return ch.forceCommit
 }
 
 // Handler appends handler to the channel.
@@ -59,11 +66,6 @@ func (ch *StreamChannel) HandlerFunc(h HandlerFunc) *StreamChannel {
 // Compensating handler. Processed r reverse order of addition.
 func (ch *StreamChannel) RollbackHandler(h ...Handler) *StreamChannel {
 	ch.rollbacks = append(ch.rollbacks, h...)
-	return ch
-}
-
-func (ch *StreamChannel) Join(topic ...Topic) *StreamChannel {
-	ch.topicsForJoin = append(ch.topicsForJoin, topic...)
 	return ch
 }
 
