@@ -8,11 +8,12 @@ import (
 type BatchPipeOption func(*BatchPipeChannel)
 
 type BatchPipeChannel struct {
-	inTopic     Topic
-	outTopic    Topic
-	handlers    []batchPipeHandler
-	filters     []FilterFunc
-	forceCommit uint32
+	inTopic       Topic
+	outTopic      Topic
+	handlers      []batchPipeHandler
+	filters       []FilterFunc
+	forceCommit   uint32
+	topicsForJoin []Topic
 }
 
 func newBatchPipeChannel(in Topic, out Topic, opts ...BatchPipeOption) *BatchPipeChannel {
@@ -44,6 +45,11 @@ func (ch *BatchPipeChannel) AddFilter(filter ...FilterFunc) *BatchPipeChannel {
 func (ch *BatchPipeChannel) Handler(in BatchPipeHandler, out Handler) *BatchPipeChannel {
 	handler := batchPipeHandler{r: in, w: out}
 	ch.handlers = append(ch.handlers, handler)
+	return ch
+}
+
+func (ch *BatchPipeChannel) Join(topic ...Topic) *BatchPipeChannel {
+	ch.topicsForJoin = append(ch.topicsForJoin, topic...)
 	return ch
 }
 

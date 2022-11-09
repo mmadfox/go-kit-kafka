@@ -2,7 +2,7 @@ package kafka
 
 import "unsafe"
 
-type FilterFunc func(key []byte, value []byte) bool
+type FilterFunc func(key string, value string) bool
 
 func match(filters []FilterFunc, msg *Message) (found bool) {
 	if len(filters) == 0 || len(msg.Headers) == 0 {
@@ -12,7 +12,7 @@ loop:
 	for i := 0; i < len(filters); i++ {
 		for j := 0; j < len(msg.Headers); j++ {
 			header := msg.Headers[j]
-			if filters[i](header.Key, header.Value) {
+			if filters[i](ToString(header.Key), ToString(header.Value)) {
 				break loop
 			}
 		}

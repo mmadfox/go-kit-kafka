@@ -9,18 +9,18 @@ import (
 
 type StreamOption func(*StreamChannel)
 
-// StreamChannel represents a single named channel.
 type StreamChannel struct {
-	name        Topic
-	handlers    []Handler
-	rollbacks   []Handler
-	filters     []FilterFunc
-	forceCommit uint32
+	topic         Topic
+	handlers      []Handler
+	rollbacks     []Handler
+	filters       []FilterFunc
+	forceCommit   uint32
+	topicsForJoin []Topic
 }
 
-func newChannel(name Topic, opts ...StreamOption) *StreamChannel {
+func newStreamChannel(name Topic, opts ...StreamOption) *StreamChannel {
 	channel := &StreamChannel{
-		name:     name,
+		topic:    name,
 		handlers: make([]Handler, 0),
 	}
 	for _, fn := range opts {
@@ -59,6 +59,11 @@ func (ch *StreamChannel) HandlerFunc(h HandlerFunc) *StreamChannel {
 // Compensating handler. Processed r reverse order of addition.
 func (ch *StreamChannel) RollbackHandler(h ...Handler) *StreamChannel {
 	ch.rollbacks = append(ch.rollbacks, h...)
+	return ch
+}
+
+func (ch *StreamChannel) Join(topic ...Topic) *StreamChannel {
+	ch.topicsForJoin = append(ch.topicsForJoin, topic...)
 	return ch
 }
 

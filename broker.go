@@ -7,6 +7,34 @@ import (
 
 var ErrChannelNotFound = errors.New("kafka: channel not found")
 
+type ChannelType int
+
+const (
+	Stream     ChannelType = 1
+	Batch      ChannelType = 2
+	StreamPipe ChannelType = 3
+	BatchPipe  ChannelType = 4
+	Sink       ChannelType = 5
+)
+
+func (ct ChannelType) String() (s string) {
+	switch ct {
+	default:
+		s = "Unknown"
+	case Stream:
+		s = "Stream"
+	case Batch:
+		s = "Batch"
+	case StreamPipe:
+		s = "StreamPipe"
+	case BatchPipe:
+		s = "BatchPipe"
+	case Sink:
+		s = "Sink"
+	}
+	return
+}
+
 type Broker struct {
 	streamChannels    map[Topic]*StreamChannel
 	batchChannels     map[Topic]*BatchChannel
@@ -50,7 +78,7 @@ func (b *Broker) NewPipeChannel(from Topic, to Topic, opts ...PipeOption) *PipeC
 
 // NewStreamChannel creates a new stream channel, registers it with the broker, and returns it.
 func (b *Broker) NewStreamChannel(topic Topic, opts ...StreamOption) *StreamChannel {
-	channel := newChannel(topic, opts...)
+	channel := newStreamChannel(topic, opts...)
 	b.streamChannels[topic] = channel
 	b.types[topic] = Stream
 	return channel
@@ -72,34 +100,55 @@ func (b *Broker) NewBatchPipeChannel(from Topic, to Topic, opts ...BatchPipeOpti
 
 func (b *Broker) BatchChannel(topic Topic) (*BatchChannel, error) {
 	channel, ok := b.batchChannels[topic]
-	if !ok {
-		return nil, b.channelNotFoundErr(topic)
+	if ok {
+		return channel, nil
 	}
-	return channel, nil
+	if b.hasTopicToJoin(topic, channel.topicsForJoin) {
+		return channel, nil
+	}
+	return nil, b.channelNotFoundErr(topic)
 }
 
 func (b *Broker) PipeChannel(topic Topic) (*PipeChannel, error) {
 	channel, ok := b.pipeChannels[topic]
-	if !ok {
-		return nil, b.channelNotFoundErr(topic)
+	if ok {
+		return channel, nil
 	}
-	return channel, nil
+	if b.hasTopicToJoin(topic, channel.topicsForJoin) {
+		return channel, nil
+	}
+	return nil, b.channelNotFoundErr(topic)
 }
 
 func (b *Broker) BatchPipeChannel(topic Topic) (*BatchPipeChannel, error) {
 	channel, ok := b.batchPipeChannels[topic]
-	if !ok {
-		return nil, b.channelNotFoundErr(topic)
+	if ok {
+		return channel, nil
 	}
-	return channel, nil
+	if b.hasTopicToJoin(topic, channel.topicsForJoin) {
+		return channel, nil
+	}
+	return nil, b.channelNotFoundErr(topic)
 }
 
 func (b *Broker) StreamChannel(topic Topic) (*StreamChannel, error) {
 	channel, ok := b.streamChannels[topic]
-	if !ok {
-		return nil, b.channelNotFoundErr(topic)
+	if ok {
+		return channel, nil
 	}
-	return channel, nil
+	if b.hasTopicToJoin(topic, channel.topicsForJoin) {
+		return channel, nil
+	}
+	return nil, b.channelNotFoundErr(topic)
+}
+
+func (b *Broker) hasTopicToJoin(topic Topic, topicsForJoin []Topic) bool {
+	for _, other := range topicsForJoin {
+		if other == topic {
+			return true
+		}
+	}
+	return false
 }
 
 func (b *Broker) channelNotFoundErr(topic Topic) error {

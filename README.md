@@ -1,8 +1,16 @@
 # go-kit-kafka
 
+WIP
 
-Stream handler
-Batch handler 
-Pipe handler
+Lightweight channel-based abstraction for Apache Kafka
+
+Channels supported:
+  - Stream
+  - Batch
+  - PipeStream
+  - PipeBatch
+
+For streaming processing use: [GOKA](https://github.com/lovoo/goka)
+Supported adapters: [Sarama](https://github.com/Shopify/sarama)
 
 

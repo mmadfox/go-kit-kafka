@@ -8,11 +8,12 @@ import (
 type PipeOption func(*PipeChannel)
 
 type PipeChannel struct {
-	inTopic     Topic
-	outTopic    Topic
-	handlers    []pipeHandler
-	filters     []FilterFunc
-	forceCommit uint32
+	inTopic       Topic
+	outTopic      Topic
+	handlers      []pipeHandler
+	filters       []FilterFunc
+	forceCommit   uint32
+	topicsForJoin []Topic
 }
 
 func newPipeChannel(in Topic, out Topic, opts ...PipeOption) *PipeChannel {
@@ -53,6 +54,11 @@ func (ch *PipeChannel) HandlerFunc(in PipeHandlerFunc, out Handler) *PipeChannel
 	return ch
 }
 
+func (ch *PipeChannel) Join(topic ...Topic) *PipeChannel {
+	ch.topicsForJoin = append(ch.topicsForJoin, topic...)
+	return ch
+}
+
 func (ch *PipeChannel) HandleMessage(ctx context.Context, in *Message) (err error) {
 	if len(ch.filters) > 0 {
 		found := match(ch.filters, in)
@@ -61,6 +67,7 @@ func (ch *PipeChannel) HandleMessage(ctx context.Context, in *Message) (err erro
 			return
 		}
 	}
+
 	out := &Message{Topic: ch.outTopic}
 	for i := 0; i < len(ch.handlers); i++ {
 		handler := ch.handlers[i]

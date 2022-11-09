@@ -2,31 +2,6 @@ package kafka
 
 import "context"
 
-type ChannelType int
-
-const (
-	Stream     ChannelType = 1
-	Batch      ChannelType = 2
-	StreamPipe ChannelType = 3
-	BatchPipe  ChannelType = 4
-)
-
-func (ct ChannelType) String() (s string) {
-	switch ct {
-	default:
-		s = "Unknown"
-	case Stream:
-		s = "Stream"
-	case Batch:
-		s = "Batch"
-	case StreamPipe:
-		s = "StreamPipe"
-	case BatchPipe:
-		s = "BatchPipe"
-	}
-	return
-}
-
 // Handler wraps an endpoint and provides a handler for Kafka messages.
 type Handler interface {
 	HandleMessage(ctx context.Context, msg *Message) error
